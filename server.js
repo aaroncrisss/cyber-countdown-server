@@ -17,8 +17,10 @@
  */
 
 const express = require('express');
-const GIFEncoder = require('gifencoder');
-const { createCanvas } = require('canvas');
+const { GifEncoder } = require('@skyra/gifenc');
+const { Canvas } = require('skia-canvas');
+
+const createCanvas = (w, h) => new Canvas(w, h);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -160,7 +162,7 @@ function getRemaining(targetDate, offsetMs = 0) {
 function generateCountdownGif(res) {
   const { WIDTH, HEIGHT, FRAMES } = CONFIG;
 
-  const encoder = new GIFEncoder(WIDTH, HEIGHT);
+  const encoder = new GifEncoder(WIDTH, HEIGHT);
 
   // Headers anti-cache → fundamental para que el email recargue el GIF
   res.setHeader('Content-Type', 'image/gif');

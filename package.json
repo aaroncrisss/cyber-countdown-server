@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "gifencoder": "^2.0.1",
-    "canvas": "^2.11.2"
+    "skia-canvas": "^3.0.8",
+    "@skyra/gifenc": "^1.0.1"
   },
   "engines": {
     "node": ">=18"
