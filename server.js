@@ -53,41 +53,53 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================================
-//  CONFIGURACIÓN — Ajusta estos valores
+//  CONFIGURACIÓN — Todo configurable via env vars
+//
+//  En Railway: Settings > Variables, sin redesplegar código.
+//  También se pueden sobreescribir por query param en la URL:
+//    /countdown.gif?frames=120&width=600&bg=%230a0a0a
 // ============================================================
-const CONFIG = {
-  // Fecha y hora del evento (ISO 8601 con timezone)
-  // Chile usa UTC-4 en horario estándar, UTC-3 en verano.
-  // Junio 2026 = horario estándar = UTC-4
-  TARGET_DATE: '2026-06-01T00:00:00-04:00',
-
-  // Dimensiones del GIF
-  WIDTH: 500,
-  HEIGHT: 140,
-
-  // Cantidad de frames (segundos animados por GIF)
-  FRAMES: 60,
-
-  // Colores
+const DEFAULTS = {
+  TARGET_DATE: process.env.TARGET_DATE || '2026-06-01T00:00:00-04:00',
+  WIDTH: parseInt(process.env.GIF_WIDTH) || 500,
+  HEIGHT: parseInt(process.env.GIF_HEIGHT) || 140,
+  FRAMES: parseInt(process.env.GIF_FRAMES) || 60,
+  EXPIRED_TEXT: process.env.EXPIRED_TEXT || '¡EL CYBER YA COMENZÓ!',
   COLORS: {
-    background: '#0a0a0a',
-    boxFill: '#1a0a2e',
-    boxBorder: '#7b2fff',
-    number: '#ffffff',
-    label: '#7b2fff',
-    separator: '#7b2fff',
-    accent: '#00f0ff'
+    background: process.env.COLOR_BG || '#0a0a0a',
+    boxFill: process.env.COLOR_BOX_FILL || '#1a0a2e',
+    boxBorder: process.env.COLOR_BOX_BORDER || '#7b2fff',
+    number: process.env.COLOR_NUMBER || '#ffffff',
+    label: process.env.COLOR_LABEL || '#7b2fff',
+    separator: process.env.COLOR_SEPARATOR || '#7b2fff',
+    accent: process.env.COLOR_ACCENT || '#00f0ff',
   },
-
-  // Texto al expirar
-  EXPIRED_TEXT: '¡EL CYBER YA COMENZÓ!'
 };
+
+function getConfig(query = {}) {
+  return {
+    TARGET_DATE: query.target || DEFAULTS.TARGET_DATE,
+    WIDTH: parseInt(query.width) || DEFAULTS.WIDTH,
+    HEIGHT: parseInt(query.height) || DEFAULTS.HEIGHT,
+    FRAMES: Math.min(parseInt(query.frames) || DEFAULTS.FRAMES, 600),
+    EXPIRED_TEXT: query.expired_text || DEFAULTS.EXPIRED_TEXT,
+    COLORS: {
+      background: query.bg || DEFAULTS.COLORS.background,
+      boxFill: query.box_fill || DEFAULTS.COLORS.boxFill,
+      boxBorder: query.box_border || DEFAULTS.COLORS.boxBorder,
+      number: query.color_number || DEFAULTS.COLORS.number,
+      label: query.color_label || DEFAULTS.COLORS.label,
+      separator: query.color_separator || DEFAULTS.COLORS.separator,
+      accent: query.color_accent || DEFAULTS.COLORS.accent,
+    },
+  };
+}
 
 // ============================================================
 //  RENDERIZADO DE UN FRAME
 // ============================================================
-function drawFrame(ctx, days, hours, minutes, seconds, expired = false) {
-  const { WIDTH, HEIGHT, COLORS } = CONFIG;
+function drawFrame(ctx, days, hours, minutes, seconds, config, expired = false) {
+  const { WIDTH, HEIGHT, COLORS } = config;
 
   // Fondo
   ctx.fillStyle = COLORS.background;
@@ -98,7 +110,7 @@ function drawFrame(ctx, days, hours, minutes, seconds, expired = false) {
     ctx.font = 'bold 28px Countdown, Liberation Sans, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(CONFIG.EXPIRED_TEXT, WIDTH / 2, HEIGHT / 2);
+    ctx.fillText(config.EXPIRED_TEXT, WIDTH / 2, HEIGHT / 2);
     return;
   }
 
@@ -186,12 +198,11 @@ function getRemaining(targetDate, offsetMs = 0) {
 // ============================================================
 //  GENERADOR DE GIF
 // ============================================================
-function generateCountdownGif(res) {
-  const { WIDTH, HEIGHT, FRAMES } = CONFIG;
+function generateCountdownGif(res, config) {
+  const { WIDTH, HEIGHT, FRAMES } = config;
 
   const encoder = new GifEncoder(WIDTH, HEIGHT);
 
-  // Headers anti-cache → fundamental para que el email recargue el GIF
   res.setHeader('Content-Type', 'image/gif');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
@@ -200,23 +211,22 @@ function generateCountdownGif(res) {
   encoder.createReadStream().pipe(res);
 
   encoder.start();
-  encoder.setRepeat(-1);    // -1 = no repetir (loop una vez)
-  encoder.setDelay(1000);   // 1 segundo por frame
+  encoder.setRepeat(0);     // 0 = loop forever
+  encoder.setDelay(1000);
   encoder.setQuality(10);
 
   const canvas = createCanvas(WIDTH, HEIGHT);
   const ctx = canvas.getContext('2d');
 
   for (let i = 0; i < FRAMES; i++) {
-    const t = getRemaining(CONFIG.TARGET_DATE, i * 1000);
+    const t = getRemaining(config.TARGET_DATE, i * 1000);
 
     if (t.expired) {
-      drawFrame(ctx, 0, 0, 0, 0, true);
+      drawFrame(ctx, 0, 0, 0, 0, config, true);
       encoder.addFrame(ctx);
-      // Si ya expiró, solo necesitamos un frame estático
       break;
     } else {
-      drawFrame(ctx, t.d, t.h, t.m, t.s, false);
+      drawFrame(ctx, t.d, t.h, t.m, t.s, config);
       encoder.addFrame(ctx);
     }
   }
@@ -229,42 +239,68 @@ function generateCountdownGif(res) {
 // ============================================================
 app.get('/countdown.gif', (req, res) => {
   try {
-    generateCountdownGif(res);
+    const config = getConfig(req.query);
+    generateCountdownGif(res, config);
   } catch (err) {
     console.error('Error generando GIF:', err);
     res.status(500).send('Error');
   }
 });
 
-// Health check
 app.get('/', (req, res) => {
-  const t = getRemaining(CONFIG.TARGET_DATE);
+  const t = getRemaining(DEFAULTS.TARGET_DATE);
   res.json({
     status: 'ok',
-    target: CONFIG.TARGET_DATE,
+    target: DEFAULTS.TARGET_DATE,
     remaining: t.expired ? 'EXPIRADO' : `${t.d}d ${t.h}h ${t.m}m ${t.s}s`,
-    gif_url: `/countdown.gif`
+    gif_url: `/countdown.gif`,
+    config: {
+      frames: DEFAULTS.FRAMES,
+      width: DEFAULTS.WIDTH,
+      height: DEFAULTS.HEIGHT,
+    },
+    query_params: 'target, frames, width, height, bg, box_fill, box_border, color_number, color_label, color_separator, color_accent, expired_text',
+    env_vars: 'TARGET_DATE, GIF_FRAMES, GIF_WIDTH, GIF_HEIGHT, COLOR_BG, COLOR_BOX_FILL, COLOR_BOX_BORDER, COLOR_NUMBER, COLOR_LABEL, COLOR_SEPARATOR, COLOR_ACCENT, EXPIRED_TEXT',
   });
 });
 
-// Preview HTML para probar visualmente
 app.get('/preview', (req, res) => {
+  const config = getConfig(req.query);
+  const qs = new URLSearchParams(req.query);
+  qs.set('t', Date.now());
   res.send(`
     <!DOCTYPE html>
     <html><head><title>Preview Countdown</title>
     <style>
-      body { background: #f0f0f0; font-family: sans-serif; padding: 40px; text-align: center; }
-      h1 { color: #333; }
-      img { display: block; margin: 20px auto; border: 1px solid #ccc; }
-      .info { background: white; padding: 20px; border-radius: 8px; max-width: 500px; margin: 20px auto; }
+      body { background: #111; font-family: sans-serif; padding: 40px; text-align: center; color: #ccc; }
+      h1 { color: #fff; }
+      img { display: block; margin: 20px auto; }
+      .info { background: #1a1a1a; padding: 20px; border-radius: 8px; max-width: 600px; margin: 20px auto; text-align: left; }
+      .info code { color: #7b2fff; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { text-align: left; padding: 4px 8px; font-size: 13px; }
+      th { color: #7b2fff; }
+      td code { color: #00f0ff; font-size: 12px; }
     </style></head>
     <body>
       <h1>🔥 Preview Cyber Countdown</h1>
-      <img src="/countdown.gif?t=${Date.now()}" alt="Countdown" />
+      <img src="/countdown.gif?${qs.toString()}" alt="Countdown" />
       <div class="info">
-        <strong>Target:</strong> ${CONFIG.TARGET_DATE}<br>
-        <strong>URL del GIF:</strong> <code>/countdown.gif</code><br>
-        <small>Refresca la página para ver un GIF nuevo.</small>
+        <strong>Target:</strong> <code>${config.TARGET_DATE}</code><br>
+        <strong>Frames:</strong> <code>${config.FRAMES}</code> (${config.FRAMES}s de animación)<br>
+        <strong>Size:</strong> <code>${config.WIDTH}x${config.HEIGHT}</code><br><br>
+        <strong>Query params disponibles:</strong>
+        <table>
+          <tr><th>Param</th><th>Ejemplo</th></tr>
+          <tr><td>target</td><td><code>2026-06-01T00:00:00-04:00</code></td></tr>
+          <tr><td>frames</td><td><code>120</code> (max 600)</td></tr>
+          <tr><td>width / height</td><td><code>600</code> / <code>160</code></td></tr>
+          <tr><td>bg</td><td><code>#0a0a0a</code></td></tr>
+          <tr><td>box_fill / box_border</td><td><code>#1a0a2e</code> / <code>#7b2fff</code></td></tr>
+          <tr><td>color_number / color_label</td><td><code>#ffffff</code> / <code>#7b2fff</code></td></tr>
+          <tr><td>expired_text</td><td><code>YA COMENZÓ</code></td></tr>
+        </table>
+        <br><small>Refresca la página para un GIF nuevo. Los mismos params se pueden setear como env vars en Railway.</small>
       </div>
     </body></html>
   `);
@@ -272,7 +308,8 @@ app.get('/preview', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Countdown server corriendo en puerto ${PORT}`);
-  console.log(`   Target: ${CONFIG.TARGET_DATE}`);
+  console.log(`   Target:  ${DEFAULTS.TARGET_DATE}`);
+  console.log(`   Frames:  ${DEFAULTS.FRAMES}`);
   console.log(`   GIF:     http://localhost:${PORT}/countdown.gif`);
   console.log(`   Preview: http://localhost:${PORT}/preview`);
 });
