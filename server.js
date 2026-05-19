@@ -18,9 +18,36 @@
 
 const express = require('express');
 const { GifEncoder } = require('@skyra/gifenc');
-const { Canvas } = require('skia-canvas');
+const { Canvas, FontLibrary } = require('skia-canvas');
+const fs = require('fs');
+const path = require('path');
 
 const createCanvas = (w, h) => new Canvas(w, h);
+
+const FONT_FAMILY = 'Countdown';
+const FONT_DIRS = [
+  '/usr/share/fonts/truetype/liberation',
+  '/usr/share/fonts/truetype/dejavu',
+  '/usr/share/fonts',
+];
+
+(function loadFont() {
+  for (const dir of FONT_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    const files = fs.readdirSync(dir, { recursive: true });
+    const bold = files.find(f => /liberation.*sans.*bold/i.test(String(f)) && String(f).endsWith('.ttf'));
+    const regular = files.find(f => /liberation.*sans/i.test(String(f)) && !/bold|italic/i.test(String(f)) && String(f).endsWith('.ttf'));
+    const font = bold || regular;
+    if (font) {
+      const fullPath = path.join(dir, String(font));
+      FontLibrary.use(FONT_FAMILY, [fullPath]);
+      console.log(`Font loaded: ${fullPath}`);
+      return;
+    }
+  }
+  const allFonts = FontLibrary.families;
+  console.warn('Liberation Sans not found. Available font families:', allFonts);
+})();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -68,7 +95,7 @@ function drawFrame(ctx, days, hours, minutes, seconds, expired = false) {
 
   if (expired) {
     ctx.fillStyle = COLORS.accent;
-    ctx.font = 'bold 28px Liberation Sans, Arial, sans-serif';
+    ctx.font = 'bold 28px Countdown, Liberation Sans, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(CONFIG.EXPIRED_TEXT, WIDTH / 2, HEIGHT / 2);
@@ -103,20 +130,20 @@ function drawFrame(ctx, days, hours, minutes, seconds, expired = false) {
 
     // Número
     ctx.fillStyle = COLORS.number;
-    ctx.font = 'bold 38px Liberation Sans, Arial, sans-serif';
+    ctx.font = 'bold 38px Countdown, Liberation Sans, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(v.num).padStart(2, '0'), x + boxWidth / 2, y + boxHeight / 2 - 8);
 
     // Etiqueta
     ctx.fillStyle = COLORS.label;
-    ctx.font = 'bold 11px Liberation Sans, Arial, sans-serif';
+    ctx.font = 'bold 11px Countdown, Liberation Sans, Arial, sans-serif';
     ctx.fillText(v.label, x + boxWidth / 2, y + boxHeight - 14);
 
     // Separador ":"
     if (i < values.length - 1) {
       ctx.fillStyle = COLORS.separator;
-      ctx.font = 'bold 32px Liberation Sans, Arial, sans-serif';
+      ctx.font = 'bold 32px Countdown, Liberation Sans, Arial, sans-serif';
       ctx.fillText(':', x + boxWidth + gap / 2, y + boxHeight / 2);
     }
   });
