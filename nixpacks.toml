@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = ["fontconfig", "liberation_ttf"]
+
+[start]
+cmd = "node server.js"

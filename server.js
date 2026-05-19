@@ -68,7 +68,7 @@ function drawFrame(ctx, days, hours, minutes, seconds, expired = false) {
 
   if (expired) {
     ctx.fillStyle = COLORS.accent;
-    ctx.font = 'bold 28px Sans';
+    ctx.font = 'bold 28px Liberation Sans, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(CONFIG.EXPIRED_TEXT, WIDTH / 2, HEIGHT / 2);
@@ -103,20 +103,20 @@ function drawFrame(ctx, days, hours, minutes, seconds, expired = false) {
 
     // Número
     ctx.fillStyle = COLORS.number;
-    ctx.font = 'bold 38px Sans';
+    ctx.font = 'bold 38px Liberation Sans, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(v.num).padStart(2, '0'), x + boxWidth / 2, y + boxHeight / 2 - 8);
 
     // Etiqueta
     ctx.fillStyle = COLORS.label;
-    ctx.font = 'bold 11px Sans';
+    ctx.font = 'bold 11px Liberation Sans, Arial, sans-serif';
     ctx.fillText(v.label, x + boxWidth / 2, y + boxHeight - 14);
 
     // Separador ":"
     if (i < values.length - 1) {
       ctx.fillStyle = COLORS.separator;
-      ctx.font = 'bold 32px Sans';
+      ctx.font = 'bold 32px Liberation Sans, Arial, sans-serif';
       ctx.fillText(':', x + boxWidth + gap / 2, y + boxHeight / 2);
     }
   });
