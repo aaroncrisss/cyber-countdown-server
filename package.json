@@ -1,0 +1,18 @@
+{
+  "name": "cyber-countdown-gif",
+  "version": "1.0.0",
+  "description": "Generador de GIF animado para countdown en emails",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "gifencoder": "^2.0.1",
+    "canvas": "^2.11.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
