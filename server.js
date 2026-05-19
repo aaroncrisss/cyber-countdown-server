@@ -268,42 +268,286 @@ app.get('/preview', (req, res) => {
   const config = getConfig(req.query);
   const qs = new URLSearchParams(req.query);
   qs.set('t', Date.now());
-  res.send(`
-    <!DOCTYPE html>
-    <html><head><title>Preview Countdown</title>
-    <style>
-      body { background: #111; font-family: sans-serif; padding: 40px; text-align: center; color: #ccc; }
-      h1 { color: #fff; }
-      img { display: block; margin: 20px auto; }
-      .info { background: #1a1a1a; padding: 20px; border-radius: 8px; max-width: 600px; margin: 20px auto; text-align: left; }
-      .info code { color: #7b2fff; }
-      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-      th, td { text-align: left; padding: 4px 8px; font-size: 13px; }
-      th { color: #7b2fff; }
-      td code { color: #00f0ff; font-size: 12px; }
-    </style></head>
-    <body>
-      <h1>🔥 Preview Cyber Countdown</h1>
-      <img src="/countdown.gif?${qs.toString()}" alt="Countdown" />
-      <div class="info">
-        <strong>Target:</strong> <code>${config.TARGET_DATE}</code><br>
-        <strong>Frames:</strong> <code>${config.FRAMES}</code> (${config.FRAMES}s de animación)<br>
-        <strong>Size:</strong> <code>${config.WIDTH}x${config.HEIGHT}</code><br><br>
-        <strong>Query params disponibles:</strong>
-        <table>
-          <tr><th>Param</th><th>Ejemplo</th></tr>
-          <tr><td>target</td><td><code>2026-06-01T00:00:00-04:00</code></td></tr>
-          <tr><td>frames</td><td><code>120</code> (max 600)</td></tr>
-          <tr><td>width / height</td><td><code>600</code> / <code>160</code></td></tr>
-          <tr><td>bg</td><td><code>#0a0a0a</code></td></tr>
-          <tr><td>box_fill / box_border</td><td><code>#1a0a2e</code> / <code>#7b2fff</code></td></tr>
-          <tr><td>color_number / color_label</td><td><code>#ffffff</code> / <code>#7b2fff</code></td></tr>
-          <tr><td>expired_text</td><td><code>YA COMENZÓ</code></td></tr>
-        </table>
-        <br><small>Refresca la página para un GIF nuevo. Los mismos params se pueden setear como env vars en Railway.</small>
+  res.send(`<!DOCTYPE html>
+<html><head><title>Preview Countdown</title>
+<style>
+  body { background: #111; font-family: sans-serif; padding: 40px; text-align: center; color: #ccc; }
+  h1 { color: #fff; }
+  img { display: block; margin: 20px auto; }
+  .info { background: #1a1a1a; padding: 20px; border-radius: 8px; max-width: 600px; margin: 20px auto; text-align: left; }
+  .info code { color: #7b2fff; }
+</style></head>
+<body>
+  <h1>🔥 Preview Cyber Countdown</h1>
+  <img src="/countdown.gif?${qs.toString()}" alt="Countdown" />
+  <div class="info">
+    <strong>Target:</strong> <code>${config.TARGET_DATE}</code><br>
+    <strong>Frames:</strong> <code>${config.FRAMES}</code> (${config.FRAMES}s de animación)<br>
+    <strong>Size:</strong> <code>${config.WIDTH}x${config.HEIGHT}</code><br><br>
+    <a href="/editor" style="color:#7b2fff">Abrir Editor Visual →</a>
+  </div>
+</body></html>`);
+});
+
+app.get('/editor', (req, res) => {
+  const d = DEFAULTS;
+  const c = d.COLORS;
+  res.send(`<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Countdown Editor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0e0e0e; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; min-height: 100vh; }
+
+  .sidebar { background: #161616; border-right: 1px solid #2a2a2a; padding: 24px; overflow-y: auto; }
+  .sidebar h1 { font-size: 18px; color: #fff; margin-bottom: 20px; }
+
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #666; margin-bottom: 10px; font-weight: 600; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: #999; margin-bottom: 4px; }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field input[type="datetime-local"] {
+    width: 100%; padding: 8px 10px; background: #0e0e0e; border: 1px solid #333;
+    border-radius: 6px; color: #fff; font-size: 13px; outline: none;
+  }
+  .field input:focus { border-color: #7b2fff; }
+
+  .color-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .color-row label { font-size: 12px; color: #999; min-width: 90px; }
+  .color-row input[type="color"] {
+    width: 32px; height: 32px; border: 1px solid #333; border-radius: 6px;
+    cursor: pointer; background: none; padding: 2px;
+  }
+  .color-row code { font-size: 11px; color: #666; }
+
+  .range-row { margin-bottom: 14px; }
+  .range-row label { display: flex; justify-content: space-between; font-size: 12px; color: #999; margin-bottom: 4px; }
+  .range-row label span { color: #7b2fff; font-weight: 600; }
+  .range-row input[type="range"] { width: 100%; accent-color: #7b2fff; }
+
+  .main { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 24px; }
+
+  #gif-preview { border: 1px solid #222; border-radius: 8px; }
+  #loading { display: none; color: #666; font-size: 13px; }
+
+  .url-box {
+    background: #161616; border: 1px solid #2a2a2a; border-radius: 8px;
+    padding: 16px; width: 100%; max-width: 700px;
+  }
+  .url-box label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 6px; display: block; }
+  .url-row { display: flex; gap: 8px; }
+  .url-row input {
+    flex: 1; padding: 10px 12px; background: #0e0e0e; border: 1px solid #333;
+    border-radius: 6px; color: #00f0ff; font-family: monospace; font-size: 12px; outline: none;
+  }
+  .url-row button, .btn {
+    padding: 8px 16px; background: #7b2fff; color: #fff; border: none;
+    border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .url-row button:hover, .btn:hover { background: #6a1fef; }
+  .btn-outline { background: transparent; border: 1px solid #333; color: #ccc; }
+  .btn-outline:hover { border-color: #7b2fff; color: #fff; background: transparent; }
+
+  .actions { display: flex; gap: 8px; margin-top: 16px; }
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; background: #7b2fff; color: #fff;
+    padding: 10px 20px; border-radius: 8px; font-size: 13px; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid #2a2a2a; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="sidebar">
+    <h1>🔥 Countdown Editor</h1>
+
+    <div class="section">
+      <div class="section-title">Evento</div>
+      <div class="field">
+        <label>Fecha y hora objetivo</label>
+        <input type="datetime-local" id="target" value="${d.TARGET_DATE.slice(0, 19)}">
       </div>
-    </body></html>
-  `);
+      <div class="field">
+        <label>Timezone offset (ej: -04:00)</label>
+        <input type="text" id="tz" value="${d.TARGET_DATE.slice(19) || '-04:00'}" placeholder="-04:00">
+      </div>
+      <div class="field">
+        <label>Texto al expirar</label>
+        <input type="text" id="expired_text" value="${d.EXPIRED_TEXT}">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Dimensiones</div>
+      <div class="range-row">
+        <label>Ancho <span id="w-val">${d.WIDTH}</span>px</label>
+        <input type="range" id="width" min="300" max="800" value="${d.WIDTH}">
+      </div>
+      <div class="range-row">
+        <label>Alto <span id="h-val">${d.HEIGHT}</span>px</label>
+        <input type="range" id="height" min="80" max="300" value="${d.HEIGHT}">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="range-row">
+        <label>Duración <span id="f-val">${d.FRAMES}</span>s</label>
+        <input type="range" id="frames" min="10" max="600" step="10" value="${d.FRAMES}">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Colores</div>
+      <div class="color-row"><label>Fondo</label><input type="color" id="bg" value="${c.background}"><code id="bg-hex">${c.background}</code></div>
+      <div class="color-row"><label>Caja relleno</label><input type="color" id="box_fill" value="${c.boxFill}"><code id="box_fill-hex">${c.boxFill}</code></div>
+      <div class="color-row"><label>Caja borde</label><input type="color" id="box_border" value="${c.boxBorder}"><code id="box_border-hex">${c.boxBorder}</code></div>
+      <div class="color-row"><label>Números</label><input type="color" id="color_number" value="${c.number}"><code id="color_number-hex">${c.number}</code></div>
+      <div class="color-row"><label>Etiquetas</label><input type="color" id="color_label" value="${c.label}"><code id="color_label-hex">${c.label}</code></div>
+      <div class="color-row"><label>Separador</label><input type="color" id="color_separator" value="${c.separator}"><code id="color_separator-hex">${c.separator}</code></div>
+      <div class="color-row"><label>Acento</label><input type="color" id="color_accent" value="${c.accent}"><code id="color_accent-hex">${c.accent}</code></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="updatePreview()">Generar GIF</button>
+      <button class="btn btn-outline" onclick="resetDefaults()">Reset</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <img id="gif-preview" alt="Countdown Preview" />
+    <div id="loading">Generando GIF...</div>
+
+    <div class="url-box">
+      <label>URL para email / embed</label>
+      <div class="url-row">
+        <input type="text" id="gif-url" readonly>
+        <button onclick="copyUrl()">Copiar</button>
+      </div>
+    </div>
+
+    <div class="url-box">
+      <label>HTML para email</label>
+      <div class="url-row">
+        <input type="text" id="html-snippet" readonly>
+        <button onclick="copyHtml()">Copiar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const base = location.origin;
+
+const rangeIds = [
+  { input: 'width', display: 'w-val' },
+  { input: 'height', display: 'h-val' },
+  { input: 'frames', display: 'f-val' },
+];
+rangeIds.forEach(r => {
+  $(r.input).addEventListener('input', () => { $(r.display).textContent = $(r.input).value; });
+});
+
+const colorIds = ['bg','box_fill','box_border','color_number','color_label','color_separator','color_accent'];
+colorIds.forEach(id => {
+  $(id).addEventListener('input', () => { $(id + '-hex').textContent = $(id).value; });
+});
+
+function buildParams() {
+  const p = new URLSearchParams();
+  const target = $('target').value + ($('tz').value || '-04:00');
+  p.set('target', target);
+  p.set('frames', $('frames').value);
+  p.set('width', $('width').value);
+  p.set('height', $('height').value);
+  p.set('expired_text', $('expired_text').value);
+  colorIds.forEach(id => p.set(id, $(id).value));
+  return p;
+}
+
+function buildGifUrl() {
+  const p = buildParams();
+  return base + '/countdown.gif?' + p.toString();
+}
+
+function updatePreview() {
+  const url = buildGifUrl();
+  const img = $('gif-preview');
+  const loading = $('loading');
+
+  loading.style.display = 'block';
+  img.style.opacity = '0.4';
+
+  const p = buildParams();
+  p.set('t', Date.now());
+  const freshUrl = base + '/countdown.gif?' + p.toString();
+
+  const tmp = new Image();
+  tmp.onload = () => {
+    img.src = freshUrl;
+    img.style.opacity = '1';
+    loading.style.display = 'none';
+  };
+  tmp.onerror = () => {
+    img.style.opacity = '1';
+    loading.style.display = 'none';
+    showToast('Error generando GIF');
+  };
+  tmp.src = freshUrl;
+
+  $('gif-url').value = url;
+  $('html-snippet').value = '<img src="' + url + '" alt="Countdown" />';
+}
+
+function copyUrl() {
+  navigator.clipboard.writeText($('gif-url').value);
+  showToast('URL copiada');
+}
+function copyHtml() {
+  navigator.clipboard.writeText($('html-snippet').value);
+  showToast('HTML copiado');
+}
+
+function resetDefaults() {
+  $('target').value = '${d.TARGET_DATE.slice(0, 19)}';
+  $('tz').value = '${d.TARGET_DATE.slice(19) || '-04:00'}';
+  $('expired_text').value = '${d.EXPIRED_TEXT}';
+  $('width').value = ${d.WIDTH}; $('w-val').textContent = ${d.WIDTH};
+  $('height').value = ${d.HEIGHT}; $('h-val').textContent = ${d.HEIGHT};
+  $('frames').value = ${d.FRAMES}; $('f-val').textContent = ${d.FRAMES};
+  const defaults = ${JSON.stringify(c)};
+  const map = { bg:'background', box_fill:'boxFill', box_border:'boxBorder',
+    color_number:'number', color_label:'label', color_separator:'separator', color_accent:'accent' };
+  Object.entries(map).forEach(([id, key]) => {
+    $(id).value = defaults[key];
+    $(id+'-hex').textContent = defaults[key];
+  });
+  updatePreview();
+}
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+updatePreview();
+</script>
+</body></html>`);
 });
 
 app.listen(PORT, () => {
